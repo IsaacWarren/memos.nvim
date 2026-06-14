@@ -529,6 +529,17 @@ local function open_memo_list(memos)
     vim.bo[buf].swapfile = false
     vim.bo[buf].filetype = 'memos-list'
 
+    -- Highlighting
+    vim.api.nvim_buf_call(buf, function()
+        -- Dim the header line (lines that don't start with space)
+        vim.cmd([[syntax match MemosHeader /^[^ ].*/]])
+        vim.cmd([[highlight link MemosHeader Comment]])
+
+        -- Tags
+        vim.cmd([[syntax match MemosTag /#[[:alnum:]_-]\+/]])
+        vim.cmd([[highlight link MemosTag Special]])
+    end)
+
     vim.api.nvim_buf_set_var(buf, 'memos_items', memos)
     vim.api.nvim_buf_set_var(buf, 'memos_line_map', line_to_memo)
 
