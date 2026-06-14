@@ -14,6 +14,7 @@ local default_config = {
     token = '',
     page_size = 20,
     list_preview_length = 80,
+    list_preview_lines = 3,
     default_visibility = 'PUBLIC',
     curl_path = 'curl',
     memo_filetype = 'markdown',
@@ -478,10 +479,30 @@ local function memo_summary(memo, max_len)
     return content
 end
 
-local function format_memo_line(memo, max_len)
-    local id = memo.id or memo.uid or memo.name or ''
-    local summary = memo_summary(memo, max_len)
-    return string.format('%s | %s', id, summary)
+local function format_memo_lines(memo, max_len, preview_count)
+    local uid = memo.name and memo.name:gsub('^memos/', '') or '?'
+    local tags = ''
+    if memo.tags and #memo.tags > 0 then
+        tags = ' #' .. table.concat(memo.tags, ' #')
+    end
+    local pinned = memo.pinned and '📌 ' or ''
+    local vis = memo.visibility == 'PRIVATE' and '🔒 ' or
+               memo.visibility == 'PROTECTED' and '👥 ' or ''
+    local lines = {}
+    table.insert(lines, string.format('%s%s%s%s', pinned, vis, uid, tags))
+
+    local content = memo.content or memo.snippet or ''
+    local i = 0
+    for line in content:gmatch('[^\r\n]+') do
+        i = i + 1
+        if i > (preview_count or 2) then break end
+        if #line > max_len then
+            line = line:sub(1, max_len - 2) .. '…'
+        end
+        table.insert(lines, '  ' .. line)
+    end
+    table.insert(lines, '') -- blank separator
+    return lines
 end
 
 local fetch_memo_details
@@ -491,11 +512,15 @@ local close_window
 local function open_memo_list(memos)
     local cfg = M.config
     local lines = {}
-    local lookup = {}
-    for _, memo in ipairs(memos or {}) do
+    local line_to_memo = {}
+
+    for idx, memo in ipairs(memos or {}) do
         update_tag_cache(memo)
-        lines[#lines + 1] = format_memo_line(memo, cfg.list_preview_length)
-        lookup[#lines] = memo
+        local memo_lines = format_memo_lines(memo, cfg.list_preview_length, cfg.list_preview_lines)
+        for _, l in ipairs(memo_lines) do
+            table.insert(lines, l)
+            line_to_memo[#lines] = idx
+        end
     end
 
     local buf = vim.api.nvim_create_buf(false, true)
@@ -505,7 +530,8 @@ local function open_memo_list(memos)
     vim.bo[buf].swapfile = false
     vim.bo[buf].filetype = 'memos-list'
 
-    vim.api.nvim_buf_set_var(buf, 'memos_items', lookup)
+    vim.api.nvim_buf_set_var(buf, 'memos_items', memos)
+    vim.api.nvim_buf_set_var(buf, 'memos_line_map', line_to_memo)
 
     vim.keymap.set('n', 'q', function()
         close_window(vim.api.nvim_get_current_win())
@@ -514,8 +540,10 @@ local function open_memo_list(memos)
     vim.keymap.set('n', 'n', function() M.new_memo() end, { buffer = buf, desc = 'New memo' })
     vim.keymap.set('n', '<CR>', function()
         local line = vim.api.nvim_win_get_cursor(0)[1]
+        local map = vim.api.nvim_buf_get_var(buf, 'memos_line_map')
+        local idx = map[line]
         local items = vim.api.nvim_buf_get_var(buf, 'memos_items')
-        local memo = items[line]
+        local memo = items[idx]
         if not memo then
             notify('No memo on this line', vim.log.levels.WARN)
             return
