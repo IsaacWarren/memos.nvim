@@ -469,15 +469,6 @@ local function extract_memo(payload)
     return payload
 end
 
-local function memo_summary(memo, max_len)
-    local content = memo.content or memo.snippet or ''
-    content = content:gsub('[\r\n]+', ' ')
-    content = content:gsub('%s+', ' ')
-    if #content > max_len then
-        content = content:sub(1, max_len - 1) .. '...'
-    end
-    return content
-end
 
 local function format_memo_lines(memo, max_len, preview_count)
     local uid = memo.name and memo.name:gsub('^memos/', '') or '?'
@@ -826,7 +817,6 @@ function M.open_tags_view()
     }
 
     local win = vim.api.nvim_open_win(buf, true, win_opts)
-    
     -- Initial render
     render_tags_buffer(buf)
 end
@@ -859,7 +849,7 @@ function M.fuzzy_search()
         end
 
         local cfg = M.config
-        
+
         vim.ui.select(memos, {
             prompt = 'Memos Fuzzy Search',
             format_item = function(item)
@@ -885,7 +875,7 @@ function M.search(query)
         M.fuzzy_search()
         return
     end
-    
+
     local cfg = M.config
     local path = '/memos?pageSize=' .. tostring(cfg.page_size) .. '&search=' .. vim.uri_encode(trimmed)
     local payload, err = request('GET', path, nil)
