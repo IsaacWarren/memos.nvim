@@ -514,6 +514,14 @@ local function open_memo_list(memos)
     local lines = {}
     local line_to_memo = {}
 
+    -- Sort pinned first
+    if memos then
+        table.sort(memos, function(a, b)
+            if a.pinned == b.pinned then return false end
+            return a.pinned == true
+        end)
+    end
+
     for idx, memo in ipairs(memos or {}) do
         update_tag_cache(memo)
         local memo_lines = format_memo_lines(memo, cfg.list_preview_length, cfg.list_preview_lines)
