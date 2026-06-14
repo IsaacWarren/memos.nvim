@@ -833,14 +833,17 @@ end
 
 function M.open_list()
     local cfg = M.config
-    local payload, err = request('GET', '/memos?pageSize=' .. tostring(cfg.page_size), nil)
-    if err then
-        notify(err, vim.log.levels.ERROR)
+    if not cfg or cfg.base_url == '' then
+        notify('memos: base_url is not configured', vim.log.levels.ERROR)
         return
     end
-
-    local memos = extract_memos(payload)
-    open_memo_list(memos)
+    fetch_all_memos_async(function(memos, err)
+        if err and err ~= 'memos: pagination limit exceeded' then
+            notify(err, vim.log.levels.ERROR)
+            return
+        end
+        open_memo_list(memos)
+    end)
 end
 
 function M.fuzzy_search()
